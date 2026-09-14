@@ -1,0 +1,10 @@
+# Vision Intelligence CV Engineer Live Task - Submission Answers
+
+**1. How would you scale this from one live camera to 500 cameras streaming at once? Where would it break first?**
+To scale to 500 cameras, the monolithic script must be decoupled into a distributed microservices architecture using message brokers (e.g., Kafka) and scalable inference servers (e.g., NVIDIA Triton). The system would break first at the hardware inference bottleneck; running 500 parallel YOLO-Pose streams on a single node will exhaust VRAM and compute immediately. Resolving this requires lowering the processing frame rate (e.g., analyzing 3-5 FPS instead of 30), batching frames from multiple streams, and horizontally scaling across a GPU cluster.
+
+**2. How would you avoid double-counting or losing track of a person if they briefly leave the camera's view?**
+First, the tracking algorithm's memory buffer (e.g., `track_buffer` in BoT-SORT) must be extended to keep the track identity "alive" for several seconds during occlusions. For longer disappearances where the tracker drops the ID, a lightweight Re-Identification (Re-ID) mechanism is required. By extracting and storing an appearance embedding (like an HSV color histogram or a fast deep embedding) when a track exits, we can compare newly appearing tracks against recent exits and merge them if the similarity is high, preventing double-counting.
+
+**3. How would you handle a camera feed that's consistently blurry or poor quality — flag it, skip it, or something else?**
+Consistently poor feeds should not be blindly processed or silently skipped, as both pollute the database and hide hardware failures. The pipeline should calculate a rolling baseline of frame sharpness (using Laplacian variance) and automatically trigger a "Degraded Camera" alert to the IT/maintenance team if the median drops below an acceptable threshold. During this degraded state, the system should continue processing but explicitly tag all generated analytics in the database with a "Low Confidence" flag so downstream consumers know the data is unreliable until the lens is cleaned.
